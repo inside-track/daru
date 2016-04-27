@@ -295,11 +295,11 @@ module Daru
           end
         when Hash
           create_vectors_index_with vectors, source
+          vectors_have_same_index = all_vectors_have_equal_indexes?(source)
           if all_daru_vectors_in_source? source
             if !index.nil?
               @index = try_create_index index
-            elsif all_vectors_have_equal_indexes?(source)
-              vectors_have_same_index = true
+            elsif vectors_have_same_index
               @index = source.values[0].index.dup
             else
               all_indexes = []
