@@ -890,6 +890,16 @@ describe Daru::DataFrame do
       expect(cloned[:a].object_id).to eq(@data_frame[:a].object_id)
       expect(cloned[:b].object_id).to eq(@data_frame[:b].object_id)
     end
+
+    it "original dataframe remains unaffected when operations are applied
+      on cloned data frame" do
+      original = @data_frame.dup
+      cloned = @data_frame.clone
+      cloned.delete_vector :a
+
+      expect(@data_frame).to eq(original)
+    end
+
   end
 
   context "#clone_structure" do
@@ -1119,6 +1129,18 @@ describe Daru::DataFrame do
 
         expect(@data_frame).to eq(Daru::DataFrame.new({b: [11,12,13,14,15],
                 c: [11,22,33,44,55]}, order: [:b, :c],
+                index: [:one, :two, :three, :four, :five]))
+      end
+    end
+  end
+
+  context "#delete_vectors" do
+    context Daru::Index do
+      it "deletes the specified vectors" do
+        @data_frame.delete_vectors :a, :b
+
+        expect(@data_frame).to eq(Daru::DataFrame.new({
+                c: [11,22,33,44,55]}, order: [:c],
                 index: [:one, :two, :three, :four, :five]))
       end
     end
@@ -1469,6 +1491,14 @@ describe Daru::DataFrame do
       @df.rename_vectors :a => :alpha, :c => :gamma
       expect(@df.vectors.to_a).to eq([:alpha, :b, :gamma])
     end
+
+    it "overwrites vectors if the new name already exists" do
+      saved_vector = @df[:a].dup
+
+      @df.rename_vectors :a => :b
+      expect(@df.vectors.to_a).to eq([:b, :c])
+      expect(@df[:b]).to eq saved_vector
+    end
   end
 
   context "#reindex" do
@@ -1757,6 +1787,56 @@ describe Daru::DataFrame do
       expect {
         @df.pivot_table
       }.to raise_error
+    end
+
+    it "aggregates when nils are present in value vector" do
+      df = Daru::DataFrame.new({
+        a: ['foo'  ,  'foo',  'foo',  'foo',  'foo',  'bar',  'bar',  'bar',  'ice'],
+        b: ['one'  ,  'one',  'one',  'two',  'two',  'one',  'one',  'two',  'two'],
+        c: ['small','large','large','small','small','large','small','large','small'],
+        d: [1,2,2,3,3,4,5,6,7],
+        e: [2,nil,4,6,6,8,10,12,nil]
+      })
+
+      expect(df.pivot_table index: [:a]).to eq(
+        Daru::DataFrame.new({
+          d:  [5.0, 2.2, 7],
+          e:  [10.0, 4.5, nil]
+        }, index: Daru::Index.new(['bar', 'foo', 'ice'])))
+    end
+
+    it "works when nils are present in value vector" do
+      df = Daru::DataFrame.new({
+        a: ['foo'  ,  'foo',  'foo',  'foo',  'foo',  'bar',  'bar',  'bar',  'ice'],
+        b: ['one'  ,  'one',  'one',  'two',  'two',  'one',  'one',  'two',  'two'],
+        c: ['small','large','large','small','small','large','small','large','small'],
+        d: [1,2,2,3,3,4,5,6,7],
+        e: [2,nil,4,6,6,8,10,12,nil]
+      })
+
+      agg_vectors = Daru::MultiIndex.from_tuples(
+        [
+          [:e, 'one'],
+          [:e, 'two']
+        ]
+      )
+
+      agg_index = Daru::MultiIndex.from_tuples(
+        [
+          ['bar'],
+          ['foo'],
+          ['ice']
+        ]
+      )
+
+      expect(df.pivot_table index: [:a], vectors: [:b], values: :e).to eq(
+        Daru::DataFrame.new(
+          [
+            [9, 3,  nil],
+            [12, 6, nil]
+          ], order: agg_vectors, index: agg_index
+        )
+      )
     end
   end
 

@@ -89,6 +89,11 @@ describe Daru::Core::GroupBy do
     it "returns a vector containing the size of each group" do
       expect(@dl_group.size).to eq(Daru::Vector.new([1,1,1,2,1,2], index: @dl_multi_index))
     end
+
+    it "returns an empty vector if given an empty dataframe" do
+      df = Daru::DataFrame.new({ a: [], b: [] })
+      expect(df.group_by(:a).size).to eq(Daru::Vector.new([]))
+    end
   end
 
   context "#get_group" do
@@ -339,5 +344,12 @@ describe Daru::Core::GroupBy do
 
   context "#[]" do
     pending
+  end
+
+  context "#reduce" do
+    it "returns a vector that concatenates strings in a group" do
+      string_concat = lambda { |result, row| result += row[:b] }
+      expect(@sl_group.reduce('', &string_concat)).to eq(Daru::Vector.new(['onethreetwo', 'onetwotwoonethree'], index: @sl_index))
+    end
   end
 end

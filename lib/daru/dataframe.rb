@@ -297,6 +297,7 @@ module Daru
           create_vectors_index_with vectors, source
           vectors_have_same_index = all_vectors_have_equal_indexes?(source)
           if all_daru_vectors_in_source? source
+            vectors_have_same_index = all_vectors_have_equal_indexes?(source)
             if !index.nil?
               @index = try_create_index index
             elsif vectors_have_same_index
@@ -454,7 +455,7 @@ module Daru
     # a view of the whole data frame otherwise.
     def clone *vectors_to_clone
       vectors_to_clone.flatten! unless vectors_to_clone.all? { |a| !a.is_a?(Array) }
-      return super if vectors_to_clone.empty?
+      vectors_to_clone = @vectors.to_a if vectors_to_clone.empty?
 
       h = vectors_to_clone.inject({}) do |hsh, vec|
         hsh[vec] = self[vec]
@@ -861,6 +862,13 @@ module Daru
       else
         raise IndexError, "Vector #{vector} does not exist."
       end
+
+      self
+    end
+
+    # Deletes a list of vectors
+    def delete_vectors *vectors
+      Array(vectors).each { |vec| delete_vector vec }
 
       self
     end
@@ -1361,7 +1369,9 @@ module Daru
     # == Arguments
     #
     # * name_map - A hash where the keys are the exising vector names and
-    #              the values are the new names
+    #              the values are the new names.  If a vector is renamed
+    #              to a vector name that is already in use, the existing
+    #              one is overwritten.
     #
     # == Usage
     #
@@ -1369,6 +1379,9 @@ module Daru
     #   df.rename_vectors :a => :alpha, :c => :gamma
     #   df.vectors.to_a #=> [:alpha, :b, :gamma]
     def rename_vectors name_map
+      existing_targets = name_map.values & self.vectors.to_a
+      delete_vectors *existing_targets
+
       new_names = self.vectors.to_a.map { |v| name_map[v] ? name_map[v] : v }
       self.vectors = Daru::Index.new new_names
     end
